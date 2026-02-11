@@ -1,0 +1,154 @@
+@page "/"
+
+@rendermode InteractiveServer
+@inject IHttpClientFactory HttpFactory
+
+<h3>Insurance Policy Request</h3>
+
+<div class="mb-3">
+    <label>Customer Id:</label>
+    <input @bind="request.CustomerId" class="form-control" />
+</div>
+
+<div class="mb-3">
+    <label>Age:</label>
+    <input type="number" @bind="request.Age" class="form-control" />
+</div>
+
+<div class="mb-3">
+    <label>Country:</label>
+    <input @bind="request.Country" class="form-control" />
+</div>
+
+<div class="mb-3">
+    <label>Product Code:</label>
+    <input @bind="request.ProductCode" class="form-control" />
+</div>
+
+<button class="btn btn-primary" @onclick="RunPrecheck">Run Precheck</button>
+
+<hr />
+
+@if (precheckResponse != null)
+{
+    <h4>Precheck Result: @precheckResponse.Decision</h4>
+
+    @if (precheckResponse.Reasons.Any())
+    {
+        <ul>
+            @foreach (var r in precheckResponse.Reasons)
+            {
+                <li>@r</li>
+            }
+        </ul>
+    }
+
+    @if (precheckResponse.Decision == "Approved")
+    {
+        <button class="btn btn-success" @onclick="CreatePolicy">
+            Create Policy
+        </button>
+    }
+}
+
+@if (policyStatus != null)
+{
+    <hr />
+    <h4>Policy Status</h4>
+
+    <p>Status: <b>@policyStatus.Status</b></p>
+
+    @if (policyStatus.Premium.HasValue)
+    {
+        <p>Premium: @policyStatus.Premium</p>
+    }
+
+    @if (!string.IsNullOrEmpty(policyStatus.FailureReason))
+    {
+        <p style="color:red">Failure: @policyStatus.FailureReason</p>
+    }
+}
+
+@code {
+    private PrecheckRequest request = new();
+    private PrecheckResponse? precheckResponse;
+    private PolicyStatusResponse? policyStatus;
+    private string? currentPolicyId;
+
+    private async Task RunPrecheck()
+    {
+        var client = HttpFactory.CreateClient("precheck");
+
+        var result = await client.PostAsJsonAsync("/precheck", request);
+
+        precheckResponse = await result.Content.ReadFromJsonAsync<PrecheckResponse>();
+
+        policyStatus = null;
+        currentPolicyId = null;
+    }
+
+    private async Task CreatePolicy()
+    {
+        var client = HttpFactory.CreateClient("policy");
+
+        var response = await client.PostAsJsonAsync("/policies",
+            new { request.CustomerId, request.ProductCode });
+
+        var data = await response.Content.ReadFromJsonAsync<CreatePolicyResponse>();
+
+        currentPolicyId = data!.PolicyId;
+
+        _ = PollPolicyStatus();
+    }
+
+    private async Task PollPolicyStatus()
+    {
+        if (currentPolicyId == null) return;
+
+        var client = HttpFactory.CreateClient("policy");
+
+        while (true)
+        {
+            var response = await client.GetAsync($"/policies/{currentPolicyId}");
+
+            policyStatus = await response.Content.ReadFromJsonAsync<PolicyStatusResponse>();
+
+            StateHasChanged();
+
+            if (policyStatus!.Status is "Created" or "Failed")
+                break;
+
+            await Task.Delay(1000);
+        }
+    }
+
+    // DTOs used by the page
+
+    public class PrecheckRequest
+    {
+        public string CustomerId { get; set; } = "c1";
+        public int Age { get; set; } = 30;
+        public string Country { get; set; } = "DE";
+        public string ProductCode { get; set; } = "BASIC";
+    }
+
+    public class PrecheckResponse
+    {
+        public string Decision { get; set; } = "";
+        public List<string> Reasons { get; set; } = new();
+    }
+
+    public class CreatePolicyResponse
+    {
+        public string PolicyId { get; set; } = "";
+        public string Status { get; set; } = "";
+    }
+
+    public class PolicyStatusResponse
+    {
+        public string PolicyId { get; set; } = "";
+        public string Status { get; set; } = "";
+        public decimal? Premium { get; set; }
+        public string? FailureReason { get; set; }
+    }
+}

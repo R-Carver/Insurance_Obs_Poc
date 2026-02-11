@@ -1,0 +1,6 @@
+@PrecheckAPI_HostAddress = http://localhost:5071
+
+GET {{PrecheckAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

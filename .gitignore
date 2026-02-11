@@ -1,0 +1,62 @@
+############################################################
+# .NET Core / ASP.NET
+############################################################
+
+# Build results
+bin/
+obj/
+out/
+[Bb]uild/
+[Bb]uild[Ll]og.*
+
+# User-specific files
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+
+# NuGet
+*.nupkg
+packages/
+.nuget/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# MSBuild
+*.pidb
+*.svclog
+*.pdb
+
+# Visual Studio
+.vs/
+*.vsp
+*.vspscc
+*.vssscc
+*.cache
+*.ide/
+*.ide-shm
+*.ide-wal
+
+# Rider / JetBrains
+.idea/
+*.iml
+
+# Visual Studio Code
+.vscode/
+
+# Dotnet local tools
+.dotnet/
+
+# Test results
+TestResults/
+tests/TestResults/
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# Entity Framework migrations
+Migrations/
+**/Migrations/*.Designer.cs
+
+#####################

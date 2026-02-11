@@ -1,0 +1,120 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: insurance
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: precheck
+  namespace: insurance
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: precheck
+  template:
+    metadata:
+      labels:
+        app: precheck
+    spec:
+      containers:
+        - name: precheck
+          image: insurance_obs_poc-precheck:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: precheck
+  namespace: insurance
+spec:
+  selector:
+    app: precheck
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: policy
+  namespace: insurance
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: policy
+  template:
+    metadata:
+      labels:
+        app: policy
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "policy"
+        dapr.io/app-port: "8080"
+        dapr.io/log-level: "info"
+    spec:
+      containers:
+        - name: policy
+          image: insurance_obs_poc-policy:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: policy
+  namespace: insurance
+spec:
+  selector:
+    app: policy
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: insurance
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: insurance_obs_poc-frontend:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            # In-cluster DNS service names
+            - name: Services__PrecheckBaseUrl
+              value: "http://precheck:8080"
+            - name: Services__PolicyBaseUrl
+              value: "http://policy:8080"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: insurance
+spec:
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

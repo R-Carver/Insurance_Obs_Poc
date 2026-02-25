@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Dapr;
 using Dapr.Client;
@@ -9,7 +10,6 @@ builder.Services.AddSwaggerGen();
 
 // In-memory store for now (we'll swap to DB later)
 builder.Services.AddSingleton<PolicyStore>();
-builder.Services.AddHostedService<PolicyWorker>(); // background worker for "async creation"
 builder.Services.AddDaprClient();
 
 var app = builder.Build();
@@ -18,19 +18,50 @@ app.UseSwaggerUI();
 
 app.MapSubscribeHandler();
 
-app.MapPost("/policies", ([FromBody] CreatePolicyRequest req, PolicyStore store) =>
+app.MapPost("/policies", async ([FromBody] CreatePolicyRequest req, PolicyStore store, DaprClient dapr) =>
     {
         var policyId = Guid.NewGuid().ToString("N");
 
         store.CreatePending(policyId, req.CustomerId, req.ProductCode);
 
-        // Enqueue async work (later: publish to RabbitMQ via Dapr)
-        store.Enqueue(policyId);
+        await dapr.PublishEventAsync(
+            "pubsub",
+            "policy.create.requested",
+            new PolicyCreateRequested(policyId, req.CustomerId, req.ProductCode)
+            );
 
         return Results.Accepted($"/policies/{policyId}", new { policyId, status = "Pending" });
     })
     .WithName("CreatePolicy");
-//.WithOpenApi();
+
+app.MapPost("/policy/create",
+    [Topic("pubsub", "policy.create.requested")]
+    async (JsonElement cloudEvent, PolicyStore store, CancellationToken ct) =>
+    {   
+        Console.WriteLine("[SUB] Raw CloudEvent: " + cloudEvent.GetRawText());
+        
+        // CloudEvent contains your payload under "data"
+        if (!cloudEvent.TryGetProperty("data", out var data))
+            return Results.BadRequest("Missing CloudEvent 'data'.");
+
+        var evt = data.Deserialize<PolicyCreateRequested>(new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+        if (evt is null || string.IsNullOrWhiteSpace(evt.PolicyId))
+            return Results.BadRequest("Invalid PolicyCreateRequested (missing PolicyId).");
+        
+        // simulate processing time (same as worker)
+        await Task.Delay(TimeSpan.FromMilliseconds(500 + Random.Shared.Next(0, 1200)), ct);
+
+        if (store.ShouldFail())
+            store.MarkFailed(evt.PolicyId, "Simulated underwriting failure.");
+        else
+            store.MarkCreated(evt.PolicyId, store.CalculatePremium(evt.ProductCode));
+
+        return Results.Ok();
+    });
+
 
 app.MapGet("/policies/{policyId}", (string policyId, PolicyStore store) =>
     {
@@ -39,12 +70,11 @@ app.MapGet("/policies/{policyId}", (string policyId, PolicyStore store) =>
             : Results.NotFound(new { message = "Policy not found" });
     })
     .WithName("GetPolicy");
-//.WithOpenApi();
 
-//app.Run("http://localhost:5082");
 app.Run();
 
 record CreatePolicyRequest(string CustomerId, string ProductCode);
+record PolicyCreateRequested(string PolicyId, string CustomerId, string ProductCode);
 
 class PolicyStore
 {
@@ -72,7 +102,8 @@ class PolicyStore
     public bool TryGet(string policyId, out PolicyDto policy) => _policies.TryGetValue(policyId, out policy!);
 
     public void MarkCreated(string policyId, decimal premium)
-    {
+    {   
+        if (string.IsNullOrWhiteSpace(policyId)) return; // or throw custom exception
         if (_policies.TryGetValue(policyId, out var p))
             _policies[policyId] = p with { Status = "Created", Premium = premium, FailureReason = null, UpdatedAtUtc = DateTime.UtcNow };
     }

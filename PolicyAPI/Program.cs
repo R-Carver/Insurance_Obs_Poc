@@ -3,8 +3,34 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Dapr;
 using Dapr.Client;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing =>
+    {
+        tracing
+            .SetSampler(new AlwaysOnSampler())
+            .SetResourceBuilder(ResourceBuilder.CreateDefault()
+                .AddService("policy"))
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddConsoleExporter()
+            .AddOtlpExporter(o =>
+            {
+                o.Endpoint = new Uri("http://otel-collector:4317");
+                o.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.Grpc;
+            });
+        /*.AddOtlpExporter(o =>
+        {
+            //o.Endpoint = new Uri("http://otel-collector.insurance.svc.cluster.local:4318");
+            o.Endpoint = new Uri("http://otel-collector:4318");
+            o.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.HttpProtobuf;
+        });*/
+
+    });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

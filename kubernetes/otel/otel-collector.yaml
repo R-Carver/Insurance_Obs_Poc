@@ -12,11 +12,25 @@ data:
             endpoint: 0.0.0.0:4318
           grpc:
             endpoint: 0.0.0.0:4317
+            
+    processors:
+      batch:
+        timeout: 5s
+        send_batch_size: 1000
 
     exporters:
       debug:
         verbosity: detailed
-
+        
+      clickhouse:
+        endpoint: tcp://otel:otelpass@clickhouse:9000?dial_timeout=10s&compress=lz4
+        database: default
+        traces_table_name: otel_traces
+        create_schema: true
+        timeout: 10s
+        retry_on_failure:
+          enabled: true
+        
     service:
       telemetry:
         logs:
@@ -24,7 +38,8 @@ data:
       pipelines:
         traces:
           receivers: [otlp]
-          exporters: [debug]
+          processors: [batch]
+          exporters: [debug, clickhouse]
           
 ---
 
@@ -45,7 +60,7 @@ spec:
     spec:
       containers:
         - name: otel-collector
-          image: otel/opentelemetry-collector:latest
+          image: otel/opentelemetry-collector-contrib:0.146.1
           args: ["--config=/conf/otel-collector-config.yaml"]
           ports:
             - containerPort: 4317

@@ -1,8 +1,24 @@
 using Microsoft.AspNetCore.Mvc;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddOpenTelemetry()
+    .WithTracing(t =>
+    {
+        t.SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("precheck"));
+        t.SetSampler(new AlwaysOnSampler());
+        t.AddAspNetCoreInstrumentation();
+        t.AddHttpClientInstrumentation();
+        t.AddOtlpExporter(o =>
+        {
+            o.Endpoint = new Uri("http://otel-collector.insurance.svc.cluster.local:4317");
+            o.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.Grpc;
+        });
+    });
 
 var app = builder.Build();
 app.UseSwagger();

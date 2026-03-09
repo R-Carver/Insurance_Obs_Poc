@@ -1,0 +1,12 @@
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: dapr-config
+  namespace: insurance
+spec:
+  tracing:
+    samplingRate: "1"
+    otel:
+      endpointAddress: "otel-collector.insurance.svc.cluster.local:4317"
+      protocol: grpc
+      isSecure: false

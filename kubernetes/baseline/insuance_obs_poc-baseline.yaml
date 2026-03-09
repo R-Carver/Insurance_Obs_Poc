@@ -56,6 +56,7 @@ spec:
         dapr.io/enabled: "true"
         dapr.io/app-id: "policy"
         dapr.io/app-port: "8080"
+        dapr.io/config: "dapr-config"
         dapr.io/log-level: "info"
     spec:
       containers:

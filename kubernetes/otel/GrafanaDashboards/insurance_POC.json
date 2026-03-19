@@ -24,6 +24,248 @@
     {
       "datasource": {
         "type": "grafana-clickhouse-datasource",
+        "uid": "ffgenb8kco5xcb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TraceId"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": false,
+                    "title": "",
+                    "url": "/d/bfevyiupl6pkwf/insurance-poc?var-trace_id=${__value.raw}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "ffgenb8kco5xcb"
+          },
+          "editorType": "sql",
+          "format": 1,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.14.0",
+          "queryType": "table",
+          "rawSql": "SELECT\n  TraceId,\n  min(Timestamp) AS trace_start,\n  dateDiff('millisecond', min(Timestamp), max(Timestamp)) AS duration_ms,\n  any(ServiceName) AS service,\n  count() AS span_count\nFROM otel_traces\nWHERE $__timeFilter(Timestamp)\nGROUP BY TraceId\nORDER BY trace_start DESC\nLIMIT 100",
+          "refId": "A"
+        }
+      ],
+      "title": "Recent Requests",
+      "type": "table"
+    },
+    {
+      "datasource": {},
+      "gridPos": {
+        "h": 20,
+        "w": 24,
+        "x": 0,
+        "y": 7
+      },
+      "id": 1,
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "bfevs323q0bggb"
+          },
+          "editorType": "sql",
+          "format": 3,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.14.0",
+          "queryType": "traces",
+          "rawSql": "SELECT\n  TraceId AS traceID,\n  SpanId AS spanID,\n  SpanName AS operationName,\n  ParentSpanId AS parentSpanID,\n  ServiceName AS serviceName,\n  Duration / 1000000 AS duration,\n  Timestamp AS startTime,\n  arrayMap(key -> map('key', key, 'value', SpanAttributes[key]), mapKeys(SpanAttributes)) AS tags,\n  arrayMap(key -> map('key', key, 'value', ResourceAttributes[key]), mapKeys(ResourceAttributes)) AS serviceTags,\n  if(StatusCode IN ('Error', 'STATUS_CODE_ERROR'), 2, 0) AS statusCode\nFROM otel_traces\nWHERE TraceId = '${trace_id}'\nORDER BY startTime ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "Trace View",
+      "type": "traces"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "ffgenb8kco5xcb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "maxHeight": 600,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "ffgenb8kco5xcb"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "meta": {
+            "builderOptions": {
+              "columns": [],
+              "database": "",
+              "limit": 1000,
+              "mode": "list",
+              "queryType": "table",
+              "table": ""
+            }
+          },
+          "pluginVersion": "4.14.0",
+          "queryType": "timeseries",
+          "rawSql": "SELECT\n  toStartOfInterval(Timestamp, INTERVAL 1 MINUTE) AS time,\n  count() AS requests_per_minute\nFROM otel_traces\nWHERE\n  $__timeFilter(Timestamp)\n  AND ServiceName = 'frontend'\nGROUP BY time\nORDER BY time ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "Frontend Requests per minute",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
         "uid": "bfevs323q0bggb"
       },
       "fieldConfig": {
@@ -84,7 +326,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 35
       },
       "id": 2,
       "options": {
@@ -126,45 +368,6 @@
       ],
       "title": "Latency",
       "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "bfevs323q0bggb"
-      },
-      "gridPos": {
-        "h": 26,
-        "w": 18,
-        "x": 0,
-        "y": 8
-      },
-      "id": 1,
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "bfevs323q0bggb"
-          },
-          "editorType": "sql",
-          "format": 1,
-          "meta": {
-            "builderOptions": {
-              "columns": [],
-              "database": "",
-              "limit": 1000,
-              "mode": "list",
-              "queryType": "table",
-              "table": ""
-            }
-          },
-          "pluginVersion": "4.14.0",
-          "queryType": "table",
-          "rawSql": "SELECT\n  TraceId AS traceID,\n  SpanId AS spanID,\n  SpanName AS operationName,\n  ParentSpanId AS parentSpanID,\n  ServiceName AS serviceName,\n  Duration / 1000000 AS duration,\n  Timestamp AS startTime,\n  arrayMap(key -> map('key', key, 'value', SpanAttributes[key]), mapKeys(SpanAttributes)) AS tags,\n  arrayMap(key -> map('key', key, 'value', ResourceAttributes[key]), mapKeys(ResourceAttributes)) AS serviceTags,\n  if(StatusCode IN ('Error', 'STATUS_CODE_ERROR'), 2, 0) AS statusCode\nFROM otel_traces\nWHERE TraceId = '${trace_id}'\nORDER BY startTime ASC",
-          "refId": "A"
-        }
-      ],
-      "title": "Panel Title",
-      "type": "traces"
     }
   ],
   "refresh": "",
@@ -174,9 +377,9 @@
     "list": [
       {
         "current": {
-          "selected": true,
-          "text": "20370b53163b6bc290e8b3a1c16f5aa2",
-          "value": "20370b53163b6bc290e8b3a1c16f5aa2"
+          "selected": false,
+          "text": "e01bdf741c852f9d55754d6fc678d8d4",
+          "value": "e01bdf741c852f9d55754d6fc678d8d4"
         },
         "datasource": {
           "type": "grafana-clickhouse-datasource",
@@ -206,6 +409,6 @@
   "timezone": "browser",
   "title": "Insurance_POC",
   "uid": "bfevyiupl6pkwf",
-  "version": 1,
+  "version": 10,
   "weekStart": ""
 }

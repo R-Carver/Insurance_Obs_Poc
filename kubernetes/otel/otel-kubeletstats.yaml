@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-kubeletstats
+  namespace: insurance
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-kubeletstats
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/stats", "pods", "namespaces"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-kubeletstats
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: otel-kubeletstats
+subjects:
+  - kind: ServiceAccount
+    name: otel-kubeletstats
+    namespace: insurance
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-kubeletstats-config
+  namespace: insurance
+data:
+  otel-kubeletstats-config.yaml: |
+    receivers:
+      kubeletstats:
+        collection_interval: 30s
+        auth_type: serviceAccount
+        endpoint: "${env:K8S_NODE_NAME}:10250"
+        insecure_skip_verify: true
+        metric_groups:
+          - node
+          - pod
+          - container
+
+    processors:
+      batch:
+        timeout: 10s
+
+    exporters:
+      debug:
+        verbosity: normal
+
+    service:
+      telemetry:
+        logs:
+          level: info
+      pipelines:
+        metrics:
+          receivers: [kubeletstats]
+          processors: [batch]
+          exporters: [debug]
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: otel-kubeletstats
+  namespace: insurance
+spec:
+  selector:
+    matchLabels:
+      app: otel-kubeletstats
+  template:
+    metadata:
+      labels:
+        app: otel-kubeletstats
+    spec:
+      serviceAccountName: otel-kubeletstats
+      containers:
+        - name: otel-kubeletstats
+          image: otel/opentelemetry-collector-contrib:0.146.1
+          args: ["--config=/conf/otel-kubeletstats-config.yaml"]
+          env:
+            - name: K8S_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: config
+              mountPath: /conf
+      volumes:
+        - name: config
+          configMap:
+            name: otel-kubeletstats-config

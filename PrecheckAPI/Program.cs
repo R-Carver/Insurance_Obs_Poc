@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -26,6 +27,7 @@ app.UseSwaggerUI();
 
 app.MapPost("/precheck", ([FromBody] PrecheckRequest req) =>
     {
+        var activity = Activity.Current;
         var reasons = new List<string>();
 
         if (req.Age < 18) reasons.Add("Customer must be at least 18.");
@@ -37,7 +39,9 @@ app.MapPost("/precheck", ([FromBody] PrecheckRequest req) =>
             reasons.Count > 0 ? "Rejected" :
             req.Age >= 75 ? "Manual" :
             "Approved";
-
+        activity?.SetTag("business.decision", decision);
+        if(reasons.Count > 0) activity?.SetTag("business.rejection-reasons", string.Join("; ", reasons));
+        
         return Results.Ok(new PrecheckResponse(decision, reasons));
     })
     .WithName("Precheck");
